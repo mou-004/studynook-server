@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 5000;
 app.use(
   cors({
     origin: [
-      "http://localhost:5175",
+     
       "https://studynook-client-2-7ccc.onrender.com",
     ],
     credentials: true,
