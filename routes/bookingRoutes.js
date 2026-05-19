@@ -35,6 +35,13 @@ router.post("/", auth, async (req, res) => {
       return res.status(404).json({ message: "Room not found" });
     }
 
+    // Owner cannot book their own room
+    if (room.owner.toString() === req.user.id) {
+      return res.status(403).json({
+        message: "You cannot book your own room",
+      });
+    }
+
     const conflict = await Booking.findOne({
       room: roomId,
       date,
@@ -49,7 +56,8 @@ router.post("/", auth, async (req, res) => {
       });
     }
 
-    const totalCost = (getHour(endTime) - getHour(startTime)) * room.hourlyRate;
+    const totalCost =
+      (getHour(endTime) - getHour(startTime)) * room.hourlyRate;
 
     const booking = await Booking.create({
       room: roomId,
@@ -59,6 +67,7 @@ router.post("/", auth, async (req, res) => {
       endTime,
       totalCost,
       note,
+      status: "confirmed",
     });
 
     await User.findByIdAndUpdate(req.user.id, {
@@ -76,34 +85,44 @@ router.post("/", auth, async (req, res) => {
 });
 
 router.get("/mine", auth, async (req, res) => {
-  const bookings = await Booking.find({
-    user: req.user.id,
-  })
-    .populate("room", "name image floor hourlyRate capacity")
-    .sort({ createdAt: -1 });
+  try {
+    const bookings = await Booking.find({
+      user: req.user.id,
+    })
+      .populate("room", "name image floor hourlyRate capacity")
+      .sort({ createdAt: -1 });
 
-  return res.json(bookings);
+    return res.json(bookings);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
 });
 
 router.patch("/:id/cancel", auth, async (req, res) => {
-  const booking = await Booking.findById(req.params.id);
+  try {
+    const booking = await Booking.findById(req.params.id);
 
-  if (!booking) {
-    return res.status(404).json({ message: "Booking not found" });
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    if (booking.user.toString() !== req.user.id) {
+      return res.status(403).json({
+        message: "Only booking user can cancel booking",
+      });
+    }
+
+    booking.status = "cancelled";
+    await booking.save();
+
+    await User.findByIdAndUpdate(req.user.id, {
+      $pull: { bookings: booking._id },
+    });
+
+    return res.json({ message: "Booking cancelled" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
-
-  if (booking.user.toString() !== req.user.id) {
-    return res.status(403).json({ message: "Only owner can cancel booking" });
-  }
-
-  booking.status = "cancelled";
-  await booking.save();
-
-  await User.findByIdAndUpdate(req.user.id, {
-    $pull: { bookings: booking._id },
-  });
-
-  return res.json({ message: "Booking cancelled" });
 });
 
 export default router;
