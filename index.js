@@ -17,7 +17,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5175",
-      "https://studynook-09.netlify.app",
+      "https://studynook-client-2.onrender.com",
     ],
     credentials: true,
   })
