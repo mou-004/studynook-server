@@ -11,7 +11,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
@@ -49,7 +49,6 @@ router.post("/register", async (req, res) => {
     }
 
     const exists = await User.findOne({ email });
-
     if (exists) {
       return res.status(409).json({ message: "User already exists" });
     }
@@ -89,7 +88,6 @@ router.post("/login", async (req, res) => {
     }
 
     const token = createToken(user);
-
     res.cookie("token", token, cookieOptions);
 
     return res.json({
@@ -134,18 +132,14 @@ router.post("/google", async (req, res) => {
         provider: "google",
       });
     } else {
+      // Keep Google profile updated if the user already exists
       user.name = user.name || name;
       user.photo = user.photo || photo;
-
-      if (!user.provider) {
-        user.provider = "google";
-      }
-
+      if (!user.provider) user.provider = "google";
       await user.save();
     }
 
     const token = createToken(user);
-
     res.cookie("token", token, cookieOptions);
 
     return res.json({
@@ -160,19 +154,15 @@ router.post("/google", async (req, res) => {
 });
 
 router.get("/me", auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("-password");
+  const user = await User.findById(req.user.id).select("-password");
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    return res.json({
-      user: sendUser(user),
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
   }
+
+  return res.json({
+    user: sendUser(user),
+  });
 });
 
 router.post("/logout", (req, res) => {
