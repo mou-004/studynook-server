@@ -17,7 +17,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5175",
-      "https://studynook-client-2.onrender.com",
+      "https://studynook-client-2-7ccc.onrender.com",
     ],
     credentials: true,
   })
